@@ -96,7 +96,6 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-
   useEffect(() => {
     // Vô hiệu hóa cuộn khi menu mở
     if (showMenu) {
@@ -239,6 +238,7 @@ const Navbar = () => {
             src={assets.cross_icon}
             alt="Close"
           />
+
         </div>
         <ul className="flex flex-col items-center gap-2 mt-5 px-5 text-lg font-medium">
           <NavLink onClick={() => setShowMenu(false)} to="/">

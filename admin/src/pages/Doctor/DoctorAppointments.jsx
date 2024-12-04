@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DoctorContext } from '../../context/DoctorContext';
-import { assets } from '../../assets/assets';
 
 const DoctorAppointments = () => {
   const { dToken, appointments, getAllAppointments } = useContext(DoctorContext);
@@ -130,6 +129,7 @@ const DoctorAppointments = () => {
       )}
     </div>
   );
+
 };
 
 export default DoctorAppointments;

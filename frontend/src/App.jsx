@@ -13,8 +13,8 @@ import MedicalHistory from './pages/MedicalHistory'
 import MyAppointments from './pages/MyAppointments'
 import MyProfile from './pages/MyProfile'
 import Notifications from './pages/Notifications'
-import ScrollToTopButton from './components/ScrollToTopButton'
 import Marquee from "react-fast-marquee";
+import ScrollToTopButton from './components/ScrollToTopButton.jsx'
 
 const App = () => {
   return (
