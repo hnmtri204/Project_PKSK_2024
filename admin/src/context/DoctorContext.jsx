@@ -59,8 +59,6 @@ const DoctorContextProvider = (props) => {
         { headers: { Authorization: `Bearer ${dToken}` } }
       );
       if (data.appointment.status === "confirmed") {
-        toast.success("Xác nhận lịch hẹn thành công!");
-
         // Cập nhật trạng thái trực tiếp trong danh sách appointments
         setAppointments((prevAppointments) =>
           prevAppointments.filter(
@@ -68,7 +66,7 @@ const DoctorContextProvider = (props) => {
           )
         );
       } else {
-        return toast.error("Xác nhận lịch hẹn thất bại!");
+        return;
       }
     } catch (error) {
       console.log(error);
@@ -267,7 +265,6 @@ const DoctorContextProvider = (props) => {
       if (data.length === 0) console.log("Không có lịch hẹn nào!");
     } catch (error) {
       console.error("Error fetching appointments:", error);
-      toast.error("Có lỗi xảy ra khi lấy lịch hẹn!");
     }
   };
 
@@ -285,7 +282,6 @@ const DoctorContextProvider = (props) => {
       }
     } catch (error) {
       console.log(error);
-      toast.error("Có lỗi xảy ra khi lấy lịch hẹn theo trạng thái!");
     }
   };
 
