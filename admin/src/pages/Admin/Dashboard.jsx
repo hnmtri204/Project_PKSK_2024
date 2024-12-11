@@ -62,23 +62,40 @@ const Dashboard = () => {
               Authorization: `Bearer ${aToken}`,
             },
           });
-          const data = response.data; // Lấy dữ liệu từ response
-
-          // Cập nhật doanh thu vào tháng tương ứng
+          const data = response.data;
+    
+          // Chuyển đổi tên tháng từ tiếng Anh sang tiếng Việt
+          const monthMapping = {
+            January: "Tháng 1",
+            February: "Tháng 2",
+            March: "Tháng 3",
+            April: "Tháng 4",
+            May: "Tháng 5",
+            June: "Tháng 6",
+            July: "Tháng 7",
+            August: "Tháng 8",
+            September: "Tháng 9",
+            October: "Tháng 10",
+            November: "Tháng 11",
+            December: "Tháng 12",
+          };
+    
+          // Cập nhật dữ liệu doanh thu
           const updatedRevenueData = revenueData.map((item) => {
-            const revenueItem = data.find((d) => d.month === item.month);
+            const revenueItem = data.find((d) => monthMapping[d.month] === item.month);
             return {
               ...item,
               revenue: revenueItem ? revenueItem.revenue : 0,
             };
           });
-
+    
           setRevenueData(updatedRevenueData);
         } catch (error) {
           console.error("Error fetching revenue data:", error);
         }
       }
     };
+    
 
     fetchRevenueData();
     getDashData();
@@ -195,9 +212,9 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="pt-4 mt-5 flex flex-wrap lg:flex-nowrap gap-3 mb-4">
+      <div className="pt-4 mt-10 flex flex-wrap lg:flex-nowrap gap-3 mb-4">
         {/* Cột trái: Biểu đồ doanh thu */}
-        <div className="w-full lg:w-1/2 bg-white p-4 rounded-lg border-2 border-gray-100 cursor-pointer transition-all duration-300 shadow-lg">
+        <div className="flex-1 bg-white p-4 rounded-lg border-2 border-gray-100 cursor-pointer transition-all duration-300 shadow-lg">
           <div className="flex items-center justify-center min-h-[350px]">
             <Bar data={chartData} options={options} />
           </div>
