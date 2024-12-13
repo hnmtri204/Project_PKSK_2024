@@ -14,24 +14,36 @@ const Role = require("../../models/Role");
 const findAllAppointment = async (req, res) => {
   try {
     const appointments = await Appointment.find({});
-    if (!appointments || appointments.length === 0) {
+
+    // Lọc các lịch hẹn không có patient_id
+    const filteredAppointments = appointments.filter(
+      (appointment) => appointment.patient_id
+    );
+
+    if (!filteredAppointments || filteredAppointments.length === 0) {
       return res.status(400).json({ message: "Appointment not found" });
     }
 
     // Sắp xếp các cuộc hẹn theo createdAt từ mới nhất đến cũ nhất
-    appointments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    filteredAppointments.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
 
     const appointmentsWithDetails = await Promise.all(
-      appointments.map(async (appointment) => {
+      filteredAppointments.map(async (appointment) => {
         const patient = await Patient.findOne({ _id: appointment.patient_id });
-        const patientInfo = patient ? await User.findOne({ _id: patient.user_id }) : null;
+        const patientInfo = patient
+          ? await User.findOne({ _id: patient.user_id })
+          : null;
         const doctor = await Doctor.findOne({ _id: appointment.doctor_id });
-        const doctorInfo = doctor ? await User.findOne({ _id: doctor.user_id }) : null;
+        const doctorInfo = doctor
+          ? await User.findOne({ _id: doctor.user_id })
+          : null;
 
         return {
           ...appointment.toObject(),
           patientInfo: patientInfo || {}, // Trả về đối tượng rỗng nếu không tìm thấy
-          doctorInfo: doctorInfo || {},     // Trả về đối tượng rỗng nếu không tìm thấy
+          doctorInfo: doctorInfo || {}, // Trả về đối tượng rỗng nếu không tìm thấy
         };
       })
     );
@@ -141,8 +153,6 @@ const deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
     const { user_id } = req.body;
-
-    console.log("user_id", user_id);
 
     const patient = await Patient.findOne({ user_id: user_id });
     if (!patient) {
@@ -338,10 +348,6 @@ const getCurrentUserAppointments = async (req, res) => {
           },
         })
         .sort({ updatedAt: -1 });
-
-      if (appointments.length > 0) {
-        return res.status(200).json(appointments);
-      }
     } else if (user_role === "doctor") {
       const doctor = await Doctor.findOne({ user_id: user_id });
       if (!doctor) {
@@ -367,12 +373,18 @@ const getCurrentUserAppointments = async (req, res) => {
             select: "name image",
           },
         })
-        .sort({ updatedAt: -1 }); // Sắp xếp theo updatedAt giảm dần
-
-      if (appointments.length > 0) {
-        return res.status(200).json(appointments);
-      }
+        .sort({ updatedAt: -1 });
     }
+
+    // Lọc các lịch hẹn không có patient_id
+    const filteredAppointments = appointments.filter(
+      (appointment) => appointment.patient_id
+    );
+
+    if (filteredAppointments.length > 0) {
+      return res.status(200).json(filteredAppointments);
+    }
+
     return res.status(404).json({ message: "Appointments not found" });
   } catch (error) {
     console.error("Error fetching appointments:", error);
@@ -497,25 +509,28 @@ const showUpcomingAppointments = async (req, res) => {
       }).sort({ work_date: 1 });
     }
 
-    const updatedAppointments = await Promise.all(
-      upcomingAppointments.map(async (appointment) => {
-        const patient = await Patient.findOne({ _id: appointment.patient_id });
-        if (!patient) {
-          throw new Error("Patient not found");
-        }
+    // Lọc các lịch hẹn không có patient_id
+    const filteredAppointments = upcomingAppointments.filter(
+      (appointment) => appointment.patient_id
+    );
 
-        const user = await User.findOne({ _id: patient.user_id });
-        if (!user) {
-          throw new Error("User not found");
-        }
+    const updatedAppointments = await Promise.all(
+      filteredAppointments.map(async (appointment) => {
+        const patient = await Patient.findOne({ _id: appointment.patient_id });
+
+        // Chỉ lấy thông tin người dùng nếu bệnh nhân tồn tại
+        const user = patient
+          ? await User.findOne({ _id: patient.user_id })
+          : null;
 
         return {
           ...appointment.toObject(),
-          patient_name: user.name,
+          patient_name: user ? user.name : undefined, // Không thêm tên nếu không tìm thấy user
         };
       })
     );
 
+    // Trả về danh sách lịch hẹn đã lọc
     return res.status(200).json(updatedAppointments);
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -552,21 +567,21 @@ const getAppointmentByStatus = async (req, res) => {
       });
     }
 
-    const updatedAppointments = await Promise.all(
-      appointments.map(async (appointment) => {
-        const patient = await Patient.findOne({ _id: appointment.patient_id });
-        if (!patient) {
-          throw new Error("Patient not found");
-        }
+    // Lọc các lịch hẹn không có patient_id
+    const filteredAppointments = appointments.filter(
+      (appointment) => appointment.patient_id
+    );
 
-        const user = await User.findOne({ _id: patient.user_id });
-        if (!user) {
-          throw new Error("User not found");
-        }
+    const updatedAppointments = await Promise.all(
+      filteredAppointments.map(async (appointment) => {
+        const patient = await Patient.findOne({ _id: appointment.patient_id });
+        const user = patient
+          ? await User.findOne({ _id: patient.user_id })
+          : null;
 
         return {
           ...appointment.toObject(),
-          patient_name: user.name,
+          patient_name: user ? user.name : undefined, // Không thêm tên nếu không tìm thấy user
         };
       })
     );
@@ -649,13 +664,18 @@ const getUpcomingAppointmentsDashboardAdmin = async (req, res) => {
       })
       .sort({ work_date: 1 });
 
-    if (appointments.length <= 0) {
+    // Lọc các lịch hẹn không có patient_id
+    const filteredAppointments = appointments.filter(
+      (appointment) => appointment.patient_id
+    );
+
+    if (filteredAppointments.length <= 0) {
       return res
         .status(200)
         .json({ success: false, message: "Appointment not found" });
     }
 
-    return res.status(200).json({ success: true, data: appointments });
+    return res.status(200).json({ success: true, data: filteredAppointments });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -695,7 +715,165 @@ const deleteAppointmentByStatus = async (req, res) => {
   }
 };
 
+const findAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Tìm cuộc hẹn theo ID
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Appointment not found" });
+    }
+
+    // Tìm bệnh nhân theo ID trong cuộc hẹn
+    const patient = await Patient.findById(appointment.patient_id);
+    if (!patient) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Patient not found" });
+    }
+
+    // Tìm thông tin bệnh nhân
+    const infoPatient = await User.findById(patient.user_id);
+    if (!infoPatient) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Info patient not found" });
+    }
+
+    // Tìm bác sĩ theo ID trong cuộc hẹn
+    const doctor = await Doctor.findById(appointment.doctor_id);
+    if (!doctor) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Doctor not found" });
+    }
+
+    // Tìm thông tin bác sĩ
+    const infoDoctor = await User.findById(doctor.user_id);
+    if (!infoDoctor) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Info doctor not found" });
+    }
+
+    // Tạo phản hồi với thông tin cuộc hẹn
+    const result = {
+      id: appointment._id,
+      work_date: appointment.work_date,
+      status: appointment.status,
+      patient_id: patient._id,
+      patient_name: infoPatient.name,
+      patient_image: infoPatient.image,
+      doctor_id: doctor._id,
+      doctor_name: infoDoctor.name,
+      doctor_image: infoDoctor.image,
+    };
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const adminUpdateAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { patient_id } = req.body;
+
+    const appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return res.status(400).json({ message: "Appointment not found" });
+    }
+
+    const checkAppointmentPatient = await Appointment.findOne({
+      patient_id: patient_id,
+      work_date: req.body.work_date,
+      work_shift: req.body.work_shift,
+    });
+    if (checkAppointmentPatient) {
+      return res
+        .status(400)
+        .json({ message: "Appointment for the patient already exists" });
+    }
+
+    const oldDate = moment(appointment.work_date)
+      .tz("Asia/Ho_Chi_Minh")
+      .format("dddd, MMMM DD YYYY");
+
+    const oldShift = appointment.work_shift === "morning" ? "Sáng" : "Chiều";
+
+    const appointmentUpdate = await Appointment.findByIdAndUpdate(
+      id,
+      req.body,
+      {
+        new: true,
+      }
+    );
+
+    if (!appointmentUpdate) {
+      return res.status(400).json({ message: "Appointment not found" });
+    }
+
+    const patient = await Patient.findById(appointmentUpdate.patient_id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+    const doctor = await Doctor.findById(appointmentUpdate.doctor_id);
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
+    const patientInfo = await User.findOne({ _id: patient.user_id });
+    if (!patientInfo) {
+      return res
+        .status(404)
+        .json({ message: "Information of patient not found" });
+    }
+    const doctorInfo = await User.findOne({ _id: doctor.user_id });
+    if (!doctorInfo) {
+      return res
+        .status(404)
+        .json({ message: "Information of doctor not found" });
+    }
+
+    const newDate = moment(appointmentUpdate.work_date)
+      .tz("Asia/Ho_Chi_Minh")
+      .format("dddd, MMMM DD YYYY");
+
+    const newShift =
+      appointmentUpdate.work_shift === "morning" ? "Sáng" : "Chiều";
+    const time =
+      appointmentUpdate.work_shift === "morning" ? "7h30-11h30" : "13h30-17h30";
+
+    await Notification.create({
+      patient_id: appointmentUpdate.patient_id,
+      doctor_id: appointmentUpdate.doctor_id,
+      content: `Thông báo lịch hẹn ${oldDate}-${oldShift} của bạn đã thay đổi: \nNgày khám mới: ${newDate}. \n Ca khám mới: ${newShift}.\n Thời gian diễn ra: ${time}`,
+      appointment_id: appointmentUpdate._id,
+      recipientType: "patient",
+    });
+
+    const mailOptionsPatient = {
+      from: process.env.EMAIL_USER,
+      to: patientInfo.email,
+      subject: "Thông báo lịch hẹn:",
+      text: `Xin chào ${patientInfo.name}, lịch hẹn của bạn đã thay đổi: \nNgày khám mới: ${newDate}. \n Ca khám mới: ${newShift}.\n\nThời gian diễn ra: ${time}. \n\n Trân trọng!`,
+    };
+
+    // Gửi email
+    await transporter.sendMail(mailOptionsPatient);
+
+    return res.status(200).json({success: true, data: appointmentUpdate});
+  } catch (error) {
+    return res.status(500).json({success: false, message: error.message });
+  }
+};
+
 module.exports = {
+  findAppointment,
   findAllAppointment,
   updateAppointment,
   deleteAppointment,
@@ -708,4 +886,5 @@ module.exports = {
   getUpcomingAppointmentsDashboardAdmin,
   getAllAppointmentAdmin,
   deleteAppointmentByStatus,
+  adminUpdateAppointment,
 };

@@ -1,22 +1,19 @@
+import AOS from 'aos';
+import 'aos/dist/aos.css'; // Import AOS styles
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { convertToSlug } from "../utils/stringUtils";
-import AOS from 'aos';
-import 'aos/dist/aos.css'; // Import AOS styles
 
 const VITE_BACKEND_URI = import.meta.env.VITE_BACKEND_URI;
 
 const DoctorCardSkeleton = () => {
   return (
     <div className="border border-indigo-200 rounded-xl overflow-hidden">
-      {/* Image placeholder */}
       <div className="relative">
         <div className="h-48 w-48 bg-gray-200 animate-pulse" />
         <div className="absolute top-2 left-2 bg-gray-200 animate-pulse h-6 w-24 rounded-full" />
       </div>
-
-      {/* Content placeholder */}
       <div className="p-4 space-y-3">
         <div className="h-7 bg-gray-200 animate-pulse rounded w-[100%]" />
         <div className="h-4 bg-gray-200 animate-pulse rounded w-1/2" />
@@ -34,7 +31,7 @@ const DoctorCardSkeleton = () => {
 };
 
 const Doctors = () => {
-  const { speciality } = useParams();
+  const { speciality: initialSpeciality } = useParams(); // Lấy tham số từ URL
   const [filterDoc, setFilterDoc] = useState([]);
   const [showFilter, setShowFilter] = useState(false);
   const [specializations, setSpecializations] = useState([]);
@@ -43,17 +40,19 @@ const Doctors = () => {
   const [doctorsPerPage] = useState(8);
   const [selectedDate, setSelectedDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [speciality, setSpeciality] = useState(initialSpeciality || ""); // Khai báo state cho speciality
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    AOS.init({ duration: 900, once: true }); // Init AOS with 1s duration and only animate once
+    AOS.init({ duration: 900, once: true });
   }, []);
 
   const fetchDoctors = async () => {
     try {
       setIsLoading(true);
       const response = await axios.get(`${VITE_BACKEND_URI}/doctor/find-all`);
+      console.log("Doctors fetched:", response.data.doctors); // Kiểm tra dữ liệu
       setDoctors(response.data.success ? response.data.doctors : []);
     } catch (error) {
       console.error("Error fetching doctors:", error);
@@ -64,26 +63,29 @@ const Doctors = () => {
 
   const fetchSpecializations = async () => {
     try {
-      setIsLoading(true); // Đặt trạng thái tải dữ liệu là true
-      const response = await axios.get(
-        `${VITE_BACKEND_URI}/specialization/find-all`
-      );
-      setSpecializations(
-        response.data.success ? response.data.specializations : []
-      );
+      setIsLoading(true);
+      const response = await axios.get(`${VITE_BACKEND_URI}/specialization/find-all`);
+      setSpecializations(response.data.success ? response.data.specializations : []);
     } catch (error) {
       console.error("Error fetching specializations:", error);
     } finally {
-      setIsLoading(false); // Đặt trạng thái tải dữ liệu là false
+      setIsLoading(false);
     }
   };
 
   const applyFilter = () => {
-    let filtered = speciality
-      ? doctors.filter(
+    let filtered = doctors;
+
+    console.log("Doctors before filtering:", doctors); // Kiểm tra danh sách bác sĩ trước khi lọc
+
+    // Lọc theo chuyên khoa
+    if (speciality) {
+      filtered = filtered.filter(
         (doc) => convertToSlug(doc.specialization_id?.name) === speciality
-      )
-      : doctors;
+      );
+    }
+
+    console.log("Filtered Doctors:", filtered); // Kiểm tra danh sách bác sĩ sau khi lọc
 
     // Lọc theo ngày làm việc
     if (selectedDate) {
@@ -106,12 +108,18 @@ const Doctors = () => {
 
   useEffect(() => {
     applyFilter();
-  }, [doctors, speciality, selectedDate]); // Cập nhật khi selectedDate thay đổi
+  }, [doctors, speciality, selectedDate]);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     setCurrentPage(Number(queryParams.get("page")) || 1);
-    setSelectedDate(queryParams.get("date") || ""); // Lấy giá trị ngày từ URL
+    setSelectedDate(queryParams.get("date") || "");
+
+    // Lấy chuyên khoa từ URL
+    const specializationFromQuery = queryParams.get("specialization");
+    if (specializationFromQuery) {
+      setSpeciality(specializationFromQuery);
+    }
   }, [location]);
 
   const totalDoctors = filterDoc.length;
@@ -124,22 +132,42 @@ const Doctors = () => {
     setCurrentPage(page);
     const queryParams = new URLSearchParams(location.search);
     queryParams.set("page", page);
-    queryParams.set("date", selectedDate); // Thêm giá trị ngày vào URL
-    navigate(
-      `/doctors${speciality ? `/${speciality}` : ""}?${queryParams.toString()}`,
-      { replace: true }
-    );
+    if (speciality) {
+      queryParams.set("specialization", speciality);
+    }
+    if (selectedDate) {
+      queryParams.set("date", selectedDate);
+    }
+    navigate(`/doctors?${queryParams.toString()}`, { replace: true });
   };
 
   const handleDateChange = (date) => {
     setSelectedDate(date);
     const queryParams = new URLSearchParams(location.search);
-    queryParams.set("date", date); // Cập nhật giá trị ngày trong URL
+    queryParams.set("date", date);
     queryParams.set("page", 1); // Đặt lại trang về 1 khi thay đổi ngày
-    navigate(
-      `/doctors${speciality ? `/${speciality}` : ""}?${queryParams.toString()}`,
-      { replace: true }
-    );
+    if (speciality) {
+      queryParams.set("specialization", speciality);
+    }
+    navigate(`/doctors?${queryParams.toString()}`, { replace: true });
+  };
+
+  const handleSpecializationChange = (slug) => {
+    const queryParams = new URLSearchParams(location.search);
+
+    // Kiểm tra xem chuyên khoa đã được chọn hay chưa
+    if (speciality === slug) {
+      // Nếu đã chọn, xóa chuyên khoa
+      queryParams.delete("specialization");
+      setSpeciality(""); // Cập nhật state
+    } else {
+      // Nếu chưa chọn, thiết lập chuyên khoa mới
+      queryParams.set("specialization", slug);
+      queryParams.set("page", 1); // Đặt lại trang về 1 khi thay đổi chuyên khoa
+      setSpeciality(slug); // Cập nhật state
+    }
+
+    navigate(`/doctors?${queryParams.toString()}`, { replace: true });
   };
 
   const renderPagination = () => {
@@ -271,11 +299,7 @@ const Doctors = () => {
               {specializations.map((spec) => (
                 <div
                   key={spec._id}
-                  onClick={() =>
-                    speciality === convertToSlug(spec.name)
-                      ? navigate("/doctors")
-                      : navigate(`/doctors/${convertToSlug(spec.name)}`)
-                  }
+                  onClick={() => handleSpecializationChange(convertToSlug(spec.name))}
                   className={`w-[94vw] sm:w-40 pl-3 py-1.5 border border-gray-300 rounded transition-all cursor-pointer ${speciality === convertToSlug(spec.name)
                     ? "bg-[#e0f4fb] text-[#00759c]"
                     : ""
@@ -287,8 +311,8 @@ const Doctors = () => {
               <h3>Ngày làm việc:</h3>
               <input
                 type="date"
-                value={selectedDate} // Đặt giá trị cho ô nhập ngày
-                onChange={(e) => handleDateChange(e.target.value)} // Gọi hàm cập nhật ngày
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
                 className="w-[94vw] sm:w-40 border rounded p-2"
               />
             </div>
